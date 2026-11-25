@@ -1,0 +1,255 @@
+# Pocketwick Pin Map
+
+This is the cheat sheet for what plugs into what on the Pocketwick main board (Rev E-M2). Keep it open while you're soldering or writing the software so you don't have to dig through the big manual.
+
+Quick heads up: this is all based on the KiCad files. Nothing has been built yet, so if something on your real board doesn't match, trust a multimeter over this page.
+
+---
+
+## The Orange Pi's 40 pins
+
+Pin 1 is the one with the square pad. Odd pins are on one row, even pins on the other, same as a Raspberry Pi.
+
+The "Linux GPIO" number is what you use in software (like in the device tree or with `gpioget`). "Not used" means nothing on the board touches it, so it's free if you want to add stuff later.
+
+| Pin | What it is on the Orange Pi | Linux GPIO | What Pocketwick uses it for |
+|---|---|---|---|
+| 1 | 3.3V | | 3.3V power for the fuel gauge, clock and vibration modules |
+| 2 | 5V | | 5V coming IN from the boost module (this powers the Orange Pi) |
+| 3 | PB3 (I2C0 SDA) | 35 | I2C data line |
+| 4 | 5V | | 5V from the boost module, same as pin 2 |
+| 5 | PB2 (I2C0 SCL) | 34 | I2C clock line |
+| 6 | GND | | Ground |
+| 7 | PB4 (PWM) | 36 | Vibration driver trigger (DRV2605L IN pin) |
+| 8 | PB9 (UART0 TX) | 41 | Debug serial TX, goes to J_DBG1 |
+| 9 | GND | | Ground |
+| 10 | PB10 (UART0 RX) | 42 | Debug serial RX, goes to J_DBG1 |
+| 11 | PB0 | 32 | Not used |
+| 12 | PB5 | 37 | **PWR_OFF**: Linux pulses this high right at the end of shutdown to cut the power |
+| 13 | PB1 | 33 | Not used |
+| 14 | GND | | Ground |
+| 15 | PE11 | 139 | **PWR_SENSE**: goes HIGH while you're pressing the power button |
+| 16 | PL2 | 354 | Not used |
+| 17 | 3.3V | | 3.3V, same as pin 1 |
+| 18 | PL3 | 355 | Not used |
+| 19 | PE2 | 130 | Not used |
+| 20 | GND | | Ground |
+| 21 | PE3 | 131 | Not used |
+| 22 | PD0 | 96 | Fuel gauge alert (low battery warning) |
+| 23 | PE1 | 129 | Not used |
+| 24 | PE0 | 128 | Not used |
+| 25 | GND | | Ground |
+| 26 | PE4 | 132 | Not used |
+| 27 | PL5 | 357 | PG UP button (low when pressed) |
+| 28 | PL4 | 356 | Clock module SQW output |
+| 29 | PE12 | 140 | PG DOWN button (low when pressed) |
+| 30 | GND | | Ground |
+| 31 | PE13 | 141 | MENU button (low when pressed) |
+| 32 | PD1 | 97 | Not used |
+| 33 | PD3 | 99 | Not used |
+| 34 | GND | | Ground |
+| 35 | PB6 | 38 | Not used |
+| 36 | PD2 | 98 | Not used |
+| 37 | PD4 | 100 | Not used |
+| 38 | PB8 | 40 | Not used |
+| 39 | GND | | Ground |
+| 40 | PB7 | 39 | Not used |
+
+### Stuff to remember about the header
+
+- **Pin 12 must stay low while the Orange Pi boots.** If it goes high during startup, the power switch thinks it's being told to turn off and kills everything. This hasn't been checked on a real board yet.
+- **Pin 15 is the only button that's active HIGH.** The other three buttons (27, 29, 31) are active LOW, because they pull the pin to ground when you press them.
+- Pins 2 and 4 are 5V going INTO the Orange Pi. Don't also plug a charger into the Orange Pi's own power port while it's docked.
+- The I2C devices on pins 3 and 5 are at these addresses:
+  - **0x36:** fuel gauge
+  - **0x68:** clock
+  - **0x5A:** vibration driver
+
+---
+
+## The modules
+
+Every module plugs into female headers on the board, so you can pull them out if one dies. Only the pins that are actually connected are listed. Anything not listed is left empty.
+
+### U_CHG1: Adafruit bq24074 charger (Adafruit 4755)
+
+This is the one with the USB-C port you charge Pocketwick from.
+
+| Module pin | Connects to |
+|---|---|
+| LIPO | Battery + (VBAT) |
+| GND | Ground |
+| THERM | Battery temperature sensor (J_BAT1 pin 3) |
+
+Before you plug it in:
+- Set its charge jumper to **1.5A**.
+- **Cut the THERM jumper**, otherwise the charger ignores the battery's temperature sensor.
+
+### U_BST1: Pololu U3V70F5 5V boost (Pololu 2891)
+
+Turns the battery voltage into 5V for everything.
+
+| Module pin | Connects to |
+|---|---|
+| VIN | Battery + (VBAT) |
+| GND | Ground |
+| VOUT | 5V rail (Orange Pi pins 2 and 4, hub, amp, screen, controller) |
+| EN | The power switch's VOUT. A 4.7k resistor (R_EN1) pulls it low, so it's off by default |
+
+### U_SW1: Pololu mini pushbutton power switch LV (Pololu 2808)
+
+The on/off latch. It doesn't carry the big battery current, it just turns the boost module on and off through EN.
+
+| Module pin | Connects to |
+|---|---|
+| VIN | Battery + (VBAT) |
+| GND | Ground |
+| ON | The power button (when pressed, it gets battery voltage) |
+| OFF | Orange Pi pin 12, through a 1k resistor (R_OFF1) |
+| CTRL | The 2N3904 transistor (Q_OFF1), for the hold-3-seconds force off |
+| VOUT | The boost module's EN pin |
+
+### U_HUB1: Adafruit CH334F 4-port USB hub (Adafruit 5997)
+
+The Orange Pi only has one spare USB port, so this splits it into four.
+
+| Module pin | Connects to |
+|---|---|
+| VBUS | 5V |
+| GND | Ground |
+| DP / DM | Upstream: goes to J_OPIUSB1, then the cable to the Orange Pi's USB-C 3.0 port |
+| D+1 / D-1 | Port 1: screen touch (J_SCR1) |
+| D+2 / D-2 | Port 2: controller (J_CTRL1) |
+| D+3 / D-3 | Port 3: sound card socket (J_AUD1) |
+| D+4 / D-4 | Port 4: spare, not connected |
+
+### U_FUEL1: Adafruit MAX17048 fuel gauge (Adafruit 5580)
+
+Tells you the battery percentage.
+
+| Module pin | Connects to |
+|---|---|
+| VIN | 3.3V |
+| GND | Ground |
+| SCL | I2C clock (Orange Pi pin 5) |
+| SDA | I2C data (Orange Pi pin 3) |
+| INT | Orange Pi pin 22 (low battery alert) |
+| BAT | Battery + (VBAT), so it can measure it |
+
+### U_RTC1: Adafruit DS3231 clock (Adafruit 3013)
+
+Keeps the time when Pocketwick is off. Needs a CR1220 coin cell on the back.
+
+| Module pin | Connects to |
+|---|---|
+| VIN | 3.3V |
+| GND | Ground |
+| SCL | I2C clock (Orange Pi pin 5) |
+| SDA | I2C data (Orange Pi pin 3) |
+| SQW | Orange Pi pin 28 (has a 10k pull-up, R_SQW1) |
+
+### U_HAP1: Adafruit DRV2605L vibration driver (Adafruit 2305)
+
+Drives the vibration motor. The motor's two wires solder straight onto this module.
+
+| Module pin | Connects to |
+|---|---|
+| VIN | 3.3V |
+| GND | Ground |
+| SCL | I2C clock (Orange Pi pin 5) |
+| SDA | I2C data (Orange Pi pin 3) |
+| IN | Orange Pi pin 7 |
+
+### U_AMP1: Adafruit PAM8302 speaker amp (Adafruit 2130)
+
+Makes the speaker loud. The speaker solders to its output terminals.
+
+| Module pin | Connects to |
+|---|---|
+| VIN | 5V |
+| GND | Ground |
+| A+ | Audio in: left and right from the sound card mixed together through two 10k resistors (R_ML1, R_MR1) |
+| A- | Ground |
+
+---
+
+## Connectors on the board
+
+| Ref | What it is | Pin by pin |
+|---|---|---|
+| J_BAT1 | Battery socket, JST-PH 3-pin | 1 = BAT+ (square pad), 2 = GND, 3 = NTC (temperature sensor) |
+| J_SCR1 | Screen, 4-pin header for the micro-USB to Dupont cable | 5V, D-, D+, GND |
+| J_CTRL1 | Controller socket, 4-pin header to a USB-C breakout | 5V, D-, D+, GND |
+| J_OPIUSB1 | Link to the Orange Pi's USB-C 3.0 port (cable A) | GND, CC (5.1k to ground through R_CC1), D+, D- |
+| J_DBG1 | Debug serial, 3.3V only | GND, TX (Orange Pi pin 8), RX (Orange Pi pin 10) |
+| J_AUD1 | USB-A socket for the plug-in sound card | 5V, D-, D+, GND (hub port 3) |
+| J_JACK1 | 3.5mm jack, sound card plugs in here with a short lead | Tip = left, Ring = right, Sleeve = ground |
+
+**Check J_BAT1 with a multimeter before you plug the battery in.** If the battery's plug is wired the other way round, you'll fry stuff.
+
+For J_DBG1, connect your USB-serial adapter's RX to the board's TX and its TX to the board's RX. They cross over.
+
+---
+
+## Buttons
+
+All four are normal 6x6mm tactile buttons.
+
+| Ref | Button | What happens when you press it |
+|---|---|---|
+| SW_PWR1 | POWER | Connects battery voltage to the power switch's ON pin and to Orange Pi pin 15 (through R_S1/R_S2, so the pin only sees about 3V) |
+| SW_PGUP1 | PG UP | Pulls Orange Pi pin 27 to ground (10k pull-up R_PGUP1) |
+| SW_PGDN1 | PG DOWN | Pulls Orange Pi pin 29 to ground (10k pull-up R_PGDN1) |
+| SW_MENU1 | MENU | Pulls Orange Pi pin 31 to ground (10k pull-up R_MENU1) |
+
+### How the power button works
+
+- **Off, press POWER:** it turns on.
+- **On, press POWER once:** Linux shuts down, then pulses pin 12, and the power cuts a few seconds later.
+- **Frozen, hold POWER for about 3 seconds:** it force-switches off when you let go. That's the 330k resistor (R_T1) charging the 47uF capacitor (C_T1) until the transistor (Q_OFF1) trips the switch.
+
+---
+
+## All the little parts
+
+| Ref | Value | Between |
+|---|---|---|
+| R_PB1 | 10k | Power button line and ground (keeps it low when not pressed) |
+| R_S1 | 6.8k | Power button line and pin 15 |
+| R_S2 | 22k | Pin 15 and ground (with R_S1 this makes the 3V-ish divider) |
+| R_T1 | 330k | Power button line and the hold timer |
+| R_B1 | 100k | Hold timer and the transistor's base |
+| R_OFF1 | 1k | Orange Pi pin 12 and the power switch's OFF pin |
+| R_EN1 | 4.7k | Boost EN and ground |
+| R_PGUP1 | 10k | 3.3V and pin 27 |
+| R_PGDN1 | 10k | 3.3V and pin 29 |
+| R_MENU1 | 10k | 3.3V and pin 31 |
+| R_SQW1 | 10k | 3.3V and pin 28 |
+| R_CC1 | 5.1k | USB CC line and ground |
+| R_ML1 | 10k | Sound card left and amp input |
+| R_MR1 | 10k | Sound card right and amp input |
+| D_T1 | 1N4148 | Empties the hold timer when you let go of POWER (band side goes to the power button line) |
+| Q_OFF1 | 2N3904 | E = ground, B = from R_B1, C = power switch CTRL |
+| C_T1 | 47uF 10V | Hold timer to ground (long leg to the square pad) |
+| C_5V1 | 470uF 10V | 5V rail to ground |
+| C_BAT1 | 100uF 10V | Battery + to ground |
+
+---
+
+## Software cheat sheet
+
+If you're setting up the device tree, this is what you need:
+
+- **gpio-keys:**
+  - POWER on GPIO 139 (pin 15), **active high**, KEY_POWER
+  - PG UP on GPIO 357 (pin 27), active low
+  - PG DOWN on GPIO 140 (pin 29), active low
+  - MENU on GPIO 141 (pin 31), active low
+- **gpio-poweroff:** GPIO 37 (pin 12), active high
+- **I2C0** (pins 3 and 5):
+  - max17040 driver at 0x36
+  - ds3231 (rtc-ds1307 driver) at 0x68
+  - drv260x at 0x5A
+- **Sound:** it's a USB sound card, so no I2S setup needed. It just shows up.
+
+Where this came from: `pin_map.csv` and `design.py` in the `pocketwick_orangepi_modules_kicad` folder. If you change the board, regenerate those and update this page too.
