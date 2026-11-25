@@ -235,21 +235,3 @@ All four are normal 6x6mm tactile buttons.
 | C_BAT1 | 100uF 10V | Battery + to ground |
 
 ---
-
-## Software cheat sheet
-
-If you're setting up the device tree, this is what you need:
-
-- **gpio-keys:**
-  - POWER on GPIO 139 (pin 15), **active high**, KEY_POWER
-  - PG UP on GPIO 357 (pin 27), active low
-  - PG DOWN on GPIO 140 (pin 29), active low
-  - MENU on GPIO 141 (pin 31), active low
-- **gpio-poweroff:** GPIO 37 (pin 12), active high
-- **I2C0** (pins 3 and 5):
-  - max17040 driver at 0x36
-  - ds3231 (rtc-ds1307 driver) at 0x68
-  - drv260x at 0x5A
-- **Sound:** it's a USB sound card, so no I2S setup needed. It just shows up.
-
-Where this came from: `pin_map.csv` and `design.py` in the `pocketwick_orangepi_modules_kicad` folder. If you change the board, regenerate those and update this page too.
